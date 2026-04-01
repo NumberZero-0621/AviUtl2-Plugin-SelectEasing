@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "OutProcess.h"
 #include "EaseWindow.h"
 
@@ -159,131 +159,113 @@ void CEaseWindow::outputEaseText()
 
 void CEaseWindow::receiveNumber()
 {
-	MY_TRACE(_T("CEaseWindow::receiveNumber()\n"));
-
-	HWND target = ::GetForegroundWindow();
-	if (!target) return;
-	MY_TRACE_HWND(target);
-
-	HWND child = ::GetWindow(target, GW_CHILD);
+	if (!::IsWindow(m_target)) return;
+	// Edit \u30af\u30e9\u30b9\u306e\u30b3\u30f3\u30c8\u30ed\u30fc\u30eb\u3092\u660e\u793a\u7684\u306b\u63a2\u3059
+	HWND child = ::FindWindowEx(m_target, NULL, _T("Edit"), NULL);
 	if (!child) return;
-	MY_TRACE_HWND(child);
-	MY_TRACE_INT(::GetDlgCtrlID(child));
 
 	TCHAR text[MAX_PATH] = {};
 	::SendMessage(child, WM_GETTEXT, _countof(text), (LPARAM)text);
-	MY_TRACE_TSTR(text);
+	int value = _ttoi(text);
 
-	int n = _ttoi(text);
-	if (n < 0) return;
+	if (value < 20 || m_enable)
+		value = -value;
 
-	m_points[Points::first].x  = clamp(n / 100 / 100 / 100 % 100, Position::startX, Position::endX);
-	m_points[Points::first].y  = clamp(n / 100 / 100 % 100, Position::startY, Position::endY);
-	m_points[Points::second].x = clamp(n / 100 % 100, Position::startX, Position::endX);
-	m_points[Points::second].y = clamp(n % 100, Position::startY, Position::endY);
+	m_points[Points::second].y = value % 100; value /= 100;
+	m_points[Points::second].x = value % 100; value /= 100;
+	m_points[Points::first].y  = value % 100; value /= 100;
+	m_points[Points::first].x  = value % 100;
 }
 
 void CEaseWindow::sendNumber()
 {
-	MY_TRACE(_T("CEaseWindow::sendNumber()\n"));
+	if (!::IsWindow(m_target)) return;
+	// Edit \u30af\u30e9\u30b9\u306e\u30b3\u30f3\u30c8\u30ed\u30fc\u30eb\u3092\u660e\u793a\u7684\u306b\u63a2\u3059
+	HWND child = ::FindWindowEx(m_target, NULL, _T("Edit"), NULL);
+	if (!child) return;
 
-	HWND target = ::GetForegroundWindow();
-	if (!target)
-		return;
+	int value = 0;
+	value += m_points[Points::first].x; value *= 100;
+	value += m_points[Points::first].y; value *= 100;
+	value += m_points[Points::second].x; value *= 100;
+	value += m_points[Points::second].y;
 
-	MY_TRACE_HWND(target);
-
-	HWND child = ::GetWindow(target, GW_CHILD);
-	if (!child)
-		return;
-
-	MY_TRACE_HWND(child);
-	MY_TRACE_INT(::GetDlgCtrlID(child));
+	if (value < 20 || m_enable)
+		value = -value;
 
 	TCHAR text[MAX_PATH] = {};
-	::StringCbPrintf(text, sizeof(text), _T("%02d%02d%02d%02d"),
-		m_points[Points::first].x, m_points[Points::first].y,
-		m_points[Points::second].x, m_points[Points::second].y);
+	_itot_s(value, text, 10);
 	::SendMessage(child, WM_SETTEXT, 0, (LPARAM)text);
-	::PostMessage(target, WM_COMMAND, IDOK, 0);
+	::PostMessage(m_target, WM_COMMAND, IDOK, 0);
 }
 
-void CEaseWindow::show(HWND numberWindow, HWND easingWindow)
+void CEaseWindow::show(HWND target, HWND parent)
 {
-	MY_TRACE(_T("CEaseWindow::show(0x%08X, 0x%08X)\n"), numberWindow, easingWindow);
-
+	m_target = target;
 	if (!m_enable) return;
-	if (IsWindowVisible()) return;
 
-	// ターゲットを取得する。
-	HWND target = numberWindow;
-	if (::lstrcmpi(m_origin, _T("easing")) == 0)
-		target = easingWindow;
-	MY_TRACE_HWND(target);
+	if (IsWindowVisible())
+		return;
 
-	// 現在値を受け取る。
 	receiveNumber();
+
 	outputEaseText();
 
-	// ホット状態を初期化する。
 	m_hot = Points::none;
 
-	// 幅と高さを取得する。
 	int w, h;
 	{
-		// クライアントサイズを設定する。
 		CRect rc(0, 0, m_windowSize.cx, m_windowSize.cy);
 		clientToWindow(GetSafeHwnd(), &rc);
 		w = rc.Width();
 		h = rc.Height();
 	}
 
-	// x と y を取得する。
+	CRect rcTarget; ::GetWindowRect(target, &rcTarget);
+	CRect rcParent; ::GetWindowRect(parent, &rcParent);
+
 	int x, y;
+
+	if (::lstrcmpi(m_horz, _T("left")) == 0)
 	{
-		CRect rcTarget; ::GetWindowRect(target, &rcTarget);
+		x = rcParent.left - w;
+	}
+	else if (::lstrcmpi(m_horz, _T("right")) == 0)
+	{
+		x = rcParent.right;
+	}
+	else
+	{
+		x = rcParent.CenterPoint().x - w / 2;
+	}
 
-		if (::lstrcmpi(m_horz, _T("left")) == 0)
-		{
-			x = rcTarget.left - w;
-		}
-		else if (::lstrcmpi(m_horz, _T("right")) == 0)
-		{
-			x = rcTarget.right;
-		}
-		else
-		{
-			x = rcTarget.CenterPoint().x - w / 2;
-		}
+	if (::lstrcmpi(m_vert, _T("top")) == 0)
+	{
+		y = rcParent.top - h;
+	}
+	else if (::lstrcmpi(m_vert, _T("bottom")) == 0)
+	{
+		y = rcParent.bottom;
+	}
+	else
+	{
+		y = rcParent.CenterPoint().y - h / 2;
+	}
 
-		if (::lstrcmpi(m_vert, _T("top")) == 0)
-		{
-			y = rcTarget.top - h;
-		}
-		else if (::lstrcmpi(m_vert, _T("bottom")) == 0)
-		{
-			y = rcTarget.bottom;
-		}
-		else
-		{
-			y = rcTarget.CenterPoint().y - h / 2;
-		}
+	if (m_clamp)
+	{
+		HMONITOR monitor = ::MonitorFromWindow(target, MONITOR_DEFAULTTONEAREST);
+		MONITORINFO mi = { sizeof(mi) }; ::GetMonitorInfo(monitor, &mi);
 
-		if (m_clamp)
-		{
-			HMONITOR monitor = ::MonitorFromWindow(target, MONITOR_DEFAULTTONEAREST);
-			MONITORINFO mi = { sizeof(mi) }; ::GetMonitorInfo(monitor, &mi);
+		if (x < mi.rcWork.left)
+			x = mi.rcWork.left;
+		else if (x + w > mi.rcWork.right)
+			x = mi.rcWork.right - w;
 
-			if (x < mi.rcWork.left)
-				x = mi.rcWork.left;
-			else if (x + w > mi.rcWork.right)
-				x = mi.rcWork.right - w;
-
-			if (y < mi.rcWork.top)
-				y = mi.rcWork.top;
-			else if (y + h > mi.rcWork.bottom)
-				y = mi.rcWork.bottom - h;
-		}
+		if (y < mi.rcWork.top)
+			y = mi.rcWork.top;
+		else if (y + h > mi.rcWork.bottom)
+			y = mi.rcWork.bottom - h;
 	}
 
 	SetLayeredWindowAttributes(0, m_alpha, LWA_ALPHA);

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 //--------------------------------------------------------------------
 
@@ -27,6 +27,7 @@ public:
 
 	CPoint m_points[2];
 	int m_hot;
+	HWND m_target; // \u64cd\u4f5c\u5bfe\u8c61\u306e AviUtl \u30c0\u30a4\u30a2\u30ed\u30b0
 
 	BOOL m_enable;
 	_bstr_t m_origin;
@@ -67,7 +68,7 @@ public:
 	void outputEaseText();
 	void receiveNumber();
 	void sendNumber();
-	void show(HWND numberWindow, HWND easingWindow);
+	void show(HWND target, HWND parent);
 	void hide();
 
 public:

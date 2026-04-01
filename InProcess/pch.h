@@ -1,10 +1,11 @@
-﻿#pragma once
+#pragma once
 
+#include <cstdint>
+#include <Windows.h>
 #include "framework.h"
 
-#include "AviUtl/aviutl_exedit_sdk/aviutl.hpp"
-#include "AviUtl/aviutl_exedit_sdk/exedit.hpp"
+#include <aviutl2_sdk/plugin2.h>
+#include <aviutl2_sdk/filter2.h>
 #include "Common/Tracer.h"
 #include "Common/Hook.h"
-#include "Common/AviUtlInternal.h"
 #include "Common/SelectEasing.h"

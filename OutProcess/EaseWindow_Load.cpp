@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "OutProcess.h"
 #include "EaseWindow.h"
 
@@ -9,19 +9,19 @@
 
 //--------------------------------------------------------------------
 
-// <ease> を読み込む。
+// <ease> \u3092\u8aad\u307f\u8fbc\u3080\u3002
 HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 {
 	MY_TRACE(_T("CEaseWindow::loadEase()\n"));
 
-	// <ease> を取得する。
+	// <ease> \u3092\u53d6\u5f97\u3059\u308b\u3002
 	MSXML2::IXMLDOMNodeListPtr nodeList = element->getElementsByTagName(L"ease");
 	int c = nodeList->length;
 	for (int i = 0; i < c; i++)
 	{
 		MSXML2::IXMLDOMElementPtr easeElement = nodeList->item[i];
 
-		// <ease> のアトリビュートを取得する。
+		// <ease> \u306e\u30a2\u30c8\u30ea\u30d3\u30e5\u30fc\u30c8\u3092\u53d6\u5f97\u3059\u308b\u3002
 		getPrivateProfileBool(easeElement, L"enable", m_enable);
 		getPrivateProfileString(easeElement, L"origin", m_origin);
 		getPrivateProfileBool(easeElement, L"clamp", m_clamp);
@@ -33,7 +33,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		getPrivateProfileBool(easeElement, L"immediately", m_immediately);
 
 		{
-			// <window> を取得する。
+			// <window> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"window");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)
@@ -46,7 +46,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		}
 
 		{
-			// <background> を取得する。
+			// <background> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"background");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)
@@ -58,7 +58,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		}
 
 		{
-			// <border> を取得する。
+			// <border> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"border");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)
@@ -71,7 +71,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		}
 
 		{
-			// <curve> を取得する。
+			// <curve> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"curve");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)
@@ -84,7 +84,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		}
 
 		{
-			// <invalidCurve> を取得する。
+			// <invalidCurve> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"invalidCurve");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)
@@ -97,7 +97,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		}
 
 		{
-			// <handle> を取得する。
+			// <handle> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"handle");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)
@@ -110,7 +110,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		}
 
 		{
-			// <point> を取得する。
+			// <point> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"point");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)
@@ -123,7 +123,7 @@ HRESULT CEaseWindow::loadEase(const MSXML2::IXMLDOMElementPtr& element)
 		}
 
 		{
-			// <hotPoint> を取得する。
+			// <hotPoint> \u3092\u53d6\u5f97\u3059\u308b\u3002
 			MSXML2::IXMLDOMNodeListPtr nodeList = easeElement->getElementsByTagName(L"hotPoint");
 			int c = nodeList->length;
 			for (int i = 0; i < c; i++)

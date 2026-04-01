@@ -1,2 +1,5 @@
-﻿EXPORTS
-	GetFilterTable @1
+EXPORTS
+	RegisterPlugin
+	InitializePlugin
+	UninitializePlugin
+	GetCommonPluginTable

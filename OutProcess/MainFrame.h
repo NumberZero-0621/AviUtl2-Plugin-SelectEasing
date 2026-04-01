@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "EaseWindow.h"
 
@@ -29,6 +29,7 @@ public:
 	CParts m_parts;
 	int m_currentPart;
 	int m_hotPart;
+	HWND m_targetWnd; // \u691c\u51fa\u3057\u305f\u30bf\u30a4\u30c8\u30eb\u30a2\u30c3\u30d7\uff08\u30c0\u30a4\u30a2\u30ed\u30b3\uff09\u306e\u30cf\u30f3\u30c9\u30eb
 
 public:
 

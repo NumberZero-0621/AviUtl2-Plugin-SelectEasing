@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "OutProcess.h"
 #include "EaseWindow.h"
 
@@ -8,15 +8,15 @@
 
 //--------------------------------------------------------------------
 
-// <ease> を作成する。
+// <ease> \u3092\u4f5c\u6210\u3059\u308b\u3002
 HRESULT CEaseWindow::saveEase(const MSXML2::IXMLDOMElementPtr& element)
 {
 	MY_TRACE(_T("CEaseWindow::saveEase()\n"));
 
-	// <ease> を作成する。
+	// <ease> \u3092\u4f5c\u6210\u3059\u308b\u3002
 	MSXML2::IXMLDOMElementPtr easeElement = appendElement(element, L"ease");
 
-	// <ease> のアトリビュートを作成する。
+	// <ease> \u306e\u30a2\u30c8\u30ea\u30d3\u30e5\u30fc\u30c8\u3092\u4f5c\u6210\u3059\u308b\u3002
 	setPrivateProfileBool(easeElement, L"enable", m_enable);
 	setPrivateProfileString(easeElement, L"origin", m_origin);
 	setPrivateProfileBool(easeElement, L"clamp", m_clamp);

@@ -1,5 +1,6 @@
-﻿#pragma once
+#pragma once
 
+#include <cstdint>
 #include "framework.h"
 
 #define SELECT_EASING_CHECK_MAIN_PROCESS

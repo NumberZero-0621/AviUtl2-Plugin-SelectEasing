@@ -1,60 +1,46 @@
-﻿#include "pch.h"
+#include <Windows.h>
+#include "../../aviutl2_sdk_mirror/include/aviutl2_sdk/plugin2.h"
+#include "../../aviutl2_sdk_mirror/include/aviutl2_sdk/filter2.h"
 #include "InProcess.h"
+#include "../../Common/Tracer.h"
 
 //--------------------------------------------------------------------
 
-BOOL func_init(AviUtl::FilterPlugin* fp)
+EXTERN_C void CALLBACK RegisterPlugin(HOST_APP_TABLE* host)
 {
-	MY_TRACE(_T("func_init()\n"));
+	// MY_TRACE(_T("RegisterPlugin()\n"));
 
-	return theApp.init(fp);
+	theApp.registerPlugin(host);
 }
 
-BOOL func_exit(AviUtl::FilterPlugin* fp)
+EXTERN_C bool CALLBACK InitializePlugin(DWORD version)
 {
-	MY_TRACE(_T("func_exit()\n"));
+	// MY_TRACE(_T("InitializePlugin()\n"));
 
-	return theApp.exit(fp);
+	return theApp.initializePlugin(version);
 }
 
-BOOL func_proc(AviUtl::FilterPlugin* fp, AviUtl::FilterProcInfo* fpip)
+EXTERN_C void CALLBACK UninitializePlugin()
 {
-//	MY_TRACE(_T("func_proc()\n"));
+	// MY_TRACE(_T("UninitializePlugin()\n"));
 
-	return theApp.proc(fp, fpip);
+	theApp.uninitializePlugin();
 }
 
-BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, AviUtl::EditHandle* editp, AviUtl::FilterPlugin* fp)
+EXTERN_C FILTER_PLUGIN_TABLE* CALLBACK GetFilterPluginTable()
 {
-	return theApp.WndProc(hwnd, message, wParam, lParam, editp, fp);
+	static FILTER_PLUGIN_TABLE filter = {};
+	
+	filter.flag = FILTER_PLUGIN_TABLE::FLAG_VIDEO | FILTER_PLUGIN_TABLE::FLAG_FILTER;
+	filter.name = L"\u30a4\u30fc\u30b8\u30f3\u30b0\u7c21\u53d8\u9078\u629e";
+	filter.information = L"\u30a4\u30fc\u30b8\u30f3\u30b0\u7c21\u53d8\u9078\u629e 4.5.0 by \u86c7\u8272 (AviUtl2\u5bfe\u5fdc)";
+
+	return &filter;
 }
 
 BOOL APIENTRY DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
 {
 	return theApp.dllMain(instance, reason, reserved);
-}
-
-EXTERN_C AviUtl::FilterPluginDLL* CALLBACK GetFilterTable()
-{
-	LPCSTR name = "イージング簡単選択";
-	LPCSTR information = "イージング簡単選択 4.5.0 by 蛇色";
-
-	static AviUtl::FilterPluginDLL filter =
-	{
-		.flag =
-			AviUtl::detail::FilterPluginFlag::AlwaysActive |
-			AviUtl::detail::FilterPluginFlag::DispFilter |
-//			AviUtl::detail::FilterPluginFlag::WindowThickFrame |
-//			AviUtl::detail::FilterPluginFlag::WindowSize |
-			AviUtl::detail::FilterPluginFlag::ExInformation,
-		.name = name,
-		.func_init = func_init,
-		.func_exit = func_exit,
-		.func_WndProc = func_WndProc,
-		.information = information,
-	};
-
-	return &filter;
 }
 
 //--------------------------------------------------------------------

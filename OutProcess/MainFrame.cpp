@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "OutProcess.h"
 #include "MainFrame.h"
 
@@ -29,6 +29,7 @@ CMainFrame::CMainFrame() noexcept
 
 	m_currentPart = -1;
 	m_hotPart = -1;
+	m_targetWnd = NULL;
 }
 
 CMainFrame::~CMainFrame()
@@ -66,7 +67,7 @@ void CMainFrame::loadImage()
 
 			m_parts.resize(41);
 
-			// (1) の位置。
+			// (1) \u306e\u4f4d\u706e\u3002
 			int x = 20;
 			int y = 100;
 
@@ -76,7 +77,7 @@ void CMainFrame::loadImage()
 			{
 				y += 160;
 
-				// (2) と (6) の位置。
+				// (2) \u3068 (6) \u306e\u4f4d\u706e\u3002
 				int x1 = 20;
 				int x2 = 735;
 
@@ -234,38 +235,61 @@ HWND CMainFrame::getTarget()
 {
 	HWND hwnd = ::GetForegroundWindow();
 	DWORD pid = 0;
-	DWORD tid = ::GetWindowThreadProcessId(hwnd, &pid);
+	::GetWindowThreadProcessId(hwnd, &pid);
 
-//	MY_TRACE_HWND(hwnd);
-//	MY_TRACE_HEX(pid);
-//	MY_TRACE_HEX(theApp.m_mainProcessId);
+	auto matches = [&](HWND h) {
+		TCHAR className[256];
+		::GetClassName(h, className, _countof(className));
+		TCHAR text[MAX_PATH];
+		::GetWindowText(h, text, _countof(text));
 
-	if (pid != theApp.m_mainProcessId)
-		return 0;
+		// \u30c0\u30a4\u30a2\u30ed\u30b0\u30af\u30e9\u30b9 (#32770) \u3092\u30c1\u30a7\u30c3\u30af
+		if (::lstrcmpi(className, _T("#32770")) != 0)
+			return false;
 
-	TCHAR text[MAX_PATH];
-	::GetWindowText(hwnd, text, _countof(text));
+		// AviUtl2 \u3067\u306f\u82f1\u5b57\u306e "easing" \u3084 "@" \u304c\u542b\u307e\u308c\u308b\u3053\u3068\u304c\u591a\u3044
+		if (::lstrcmp(text, _T("\u79fb\u52d5\u30d5\u30ec\u30fc\u30e0\u9593\u9694")) == 0 || 
+			::StrStrI(text, _T("\u30a4\u30fc\u30b8\u30f3\u30b0")) != NULL ||
+			::StrStrI(text, _T("easing")) != NULL ||
+			::StrStrI(text, _T("@")) != NULL)
+		{
+			// Edit \u30af\u30e9\u30b9\u306e\u5b50\u30a6\u30a3\u30f3\u30c9\u30a6\u3092\u6301\u3064\u304b\u3082\u30c1\u30a7\u30c3\u30af
+			if (::FindWindowEx(h, NULL, _T("Edit"), NULL) != NULL)
+				return true;
+		}
+		return false;
+	};
 
-//	MY_TRACE_TSTR(text);
+	if (pid == theApp.m_mainProcessId && matches(hwnd))
+		return hwnd;
 
-	if (::lstrcmp(text, _T("移動フレーム間隔")) != 0)
-		return 0;
+	// \u30d5\u30a9\u30fc\u30eb\u30d0\u30c3\u30af: \u30bf\u30fc\u30b2\u30c3\u30c8\u30d6\u30ed\u30bb\u30b9\u306e\u89ef\u3048\u308b\u30a6\u30a3\u30f3\u30c9\u30a6\u3092\u63a2\u3059
+	struct EnumParam { DWORD pid; HWND hwnd; decltype(matches)* pMatches; };
+	EnumParam param = { theApp.m_mainProcessId, NULL, &matches };
+	::EnumWindows([](HWND h, LPARAM lp) -> BOOL {
+		EnumParam* p = (EnumParam*)lp;
+		DWORD pid = 0;
+		::GetWindowThreadProcessId(h, &pid);
+		if (pid == p->pid && ::IsWindowVisible(h)) {
+			if ((*p->pMatches)(h)) {
+				p->hwnd = h;
+				return FALSE;
+			}
+		}
+		return TRUE;
+	}, (LPARAM)&param);
 
-	return hwnd;
+	return param.hwnd;
 }
 
 int CMainFrame::getEasing()
 {
-	MY_TRACE(_T("CMainFrame::getEasing()\n"));
+	if (!::IsWindow(m_targetWnd)) return -1;
+	HWND target = m_targetWnd;
 
-	HWND target = ::GetForegroundWindow();
-	if (!target) return -1;
-	MY_TRACE_HWND(target);
-
-	HWND child = ::GetWindow(target, GW_CHILD);
+	// \u6700\u521d\u306e\u5b50\u30a6\u30a3\u30f3\u30c9\u30a6\u3067\u306f\u306a\u304f\u3001Edit \u30af\u30e9\u30b9\u3092\u660e\u793a\u7684\u306b\u63a2\u3059
+	HWND child = ::FindWindowEx(target, NULL, _T("Edit"), NULL);
 	if (!child) return -1;
-	MY_TRACE_HWND(child);
-	MY_TRACE_INT(::GetDlgCtrlID(child));
 
 	TCHAR text[MAX_PATH] = {};
 	::SendMessage(child, WM_GETTEXT, _countof(text), (LPARAM)text);
@@ -275,30 +299,24 @@ int CMainFrame::getEasing()
 		easing = -easing - 1;
 	else
 		easing = easing - 1;
-	MY_TRACE_INT(easing);
 
 	return easing;
 }
 
 void CMainFrame::setEasing(int index)
 {
-	MY_TRACE(_T("CMainFrame::setEasing(%d)\n"), index);
-
-	HWND target = ::GetForegroundWindow();
-	if (!target) return;
-	MY_TRACE_HWND(target);
+	if (!::IsWindow(m_targetWnd)) return;
+	HWND target = m_targetWnd;
 
 	int easing = index;
 	if (m_easeWindow.m_enable)
 		easing = -easing - 1;
 	else
 		easing = easing + 1;
-	MY_TRACE_INT(easing);
 
-	HWND child = ::GetWindow(target, GW_CHILD);
+	// \u6700\u521d\u306e\u5b50\u30a6\u30a3\u30f3\u30c9\u30a6\u3067\u306f\u306a\u304f\u3001Edit \u30af\u30e9\u30b9\u3092\u660e\u793a\u7684\u306b\u63a2\u3059
+	HWND child = ::FindWindowEx(target, NULL, _T("Edit"), NULL);
 	if (!child) return;
-	MY_TRACE_HWND(child);
-	MY_TRACE_INT(::GetDlgCtrlID(child));
 
 	TCHAR text[MAX_PATH] = {};
 	_itot_s(easing, text, 10);
@@ -407,6 +425,12 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CFrameWnd::OnCreate(lpCreateStruct) == -1)
 		return -1;
 
+	if (!::IsWindow(theApp.m_mainProcessWindow))
+	{
+		AfxMessageBox(_T("\u30e1\u30a4\u30f3\u30d7\u30ed\u30bb\u30b9\u306e\u30a6\u30a3\u30f3\u30c9\u30a6\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002"));
+		return FALSE;
+	}
+
 	if (!m_easeWindow.Create(this))
 	{
 		AfxMessageBox(_T("EaseWindow の作成に失敗しました\n"));
@@ -415,11 +439,11 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	if (loadSettings() != S_OK)
 	{
-		AfxMessageBox(_T("設定ファイルの読み込みに失敗しました\n"));
-		return -1;
+		// 失敗しても終了せず、デフォルト設定（XMLなし）で画像の読み込みを試みる
+		loadImage();
 	}
 
-	SetTimer(TIMER_ID, 1000, 0);
+	SetTimer(TIMER_ID, 100, 0);
 
 	return 0;
 }
@@ -495,6 +519,7 @@ void CMainFrame::OnTimer(UINT_PTR timerId)
 		}
 #endif
 		HWND target = getTarget();
+		m_targetWnd = target;
 
 		if (target)
 		{
@@ -528,7 +553,8 @@ LRESULT CMainFrame::OnNcHitTest(CPoint point)
 {
 	ScreenToClient(&point);
 
-	for (size_t i = 0; i < m_parts.size(); i++)
+	int size = static_cast<int>(m_parts.size());
+	for (int i = 0; i < size; i++)
 	{
 		if (m_parts[i].PtInRect(point))
 		{
@@ -544,7 +570,8 @@ LRESULT CMainFrame::OnNcHitTest(CPoint point)
 
 void CMainFrame::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	for (size_t i = 0; i < m_parts.size(); i++)
+	int size = static_cast<int>(m_parts.size());
+	for (int i = 0; i < size; i++)
 	{
 		if (m_parts[i].PtInRect(point))
 		{

@@ -1,18 +1,29 @@
-﻿#include "pch.h"
+#include <cstdint>
+#include <Windows.h>
+#include <tchar.h>
+#include <shlwapi.h>
+#include <strsafe.h>
+#include <stdio.h>
+
+#pragma comment(lib, "shlwapi.lib")
+
+#include "../../aviutl2_sdk_mirror/include/aviutl2_sdk/plugin2.h"
+#include "../../aviutl2_sdk_mirror/include/aviutl2_sdk/filter2.h"
 #include "InProcess.h"
-#include "InProcess_Hook.h"
+#include "../../Common-Library/Common/Tracer.h"
+
+//--------------------------------------------------------------------
 
 CInProcessApp theApp;
 
-void ___outputLog(LPCTSTR text, LPCTSTR output)
-{
-	::OutputDebugString(output);
-}
+// デバッグ出力用の関数は Tracer2.h で inline 定義されるため、ここでは定義しない。
 
 CInProcessApp::CInProcessApp()
 {
 	m_instance = 0;
 	m_hwnd = 0;
+	m_host = nullptr;
+	m_trackIndex = 0;
 	::ZeroMemory(&m_pi, sizeof(m_pi));
 }
 
@@ -26,17 +37,7 @@ BOOL CInProcessApp::dllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
 	{
 	case DLL_PROCESS_ATTACH:
 		{
-			MY_TRACE(_T("DLL_PROCESS_ATTACH\n"));
-
 			m_instance = instance;
-			MY_TRACE_HEX(m_instance);
-
-			break;
-		}
-	case DLL_PROCESS_DETACH:
-		{
-			MY_TRACE(_T("DLL_PROCESS_DETACH\n"));
-
 			break;
 		}
 	}
@@ -44,149 +45,110 @@ BOOL CInProcessApp::dllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
 	return TRUE;
 }
 
-BOOL CInProcessApp::init(AviUtl::FilterPlugin* fp)
+void CInProcessApp::registerPlugin(struct HOST_APP_TABLE* host)
 {
-	MY_TRACE(_T("CInProcessApp::init()\n"));
-
-	m_hwnd = fp->hwnd;
-
-	if (!createSubProcess())
-		return FALSE;
-
-	m_auin.initExEditAddress();
-
-	initHook();
-
-	return TRUE;
+	m_host = host;
 }
 
-BOOL CInProcessApp::exit(AviUtl::FilterPlugin* fp)
+#include "../../Common-Library/Common/Tracer2.h"
+
+bool CInProcessApp::initializePlugin(DWORD version)
 {
-	MY_TRACE(_T("CInProcessApp::exit()\n"));
+	trace_init(m_instance, _T("_InProcess"));
+	MY_TRACE(_T("CInProcessApp::initializePlugin(%u)\n"), version);
 
-	::CloseHandle(m_pi.hThread);
-	::CloseHandle(m_pi.hProcess);
-
-	termHook();
-
-	return TRUE;
-}
-
-BOOL CInProcessApp::proc(AviUtl::FilterPlugin* fp, AviUtl::FilterProcInfo* fpip)
-{
-	MY_TRACE(_T("CInProcessApp::proc()\n"));
-
-	return TRUE;
-}
-
-BOOL CInProcessApp::WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, AviUtl::EditHandle* editp, AviUtl::FilterPlugin* fp)
-{
-//	MY_TRACE(_T("CInProcessApp::WndProc(0x%08X, 0x%08X, 0x%08X)\n"), message, wParam, lParam);
-
-	switch (message)
+	if (m_host && m_host->create_edit_handle)
 	{
-	case WM_SELECT_EASING_UPDATE:
-		{
-			MY_TRACE(_T("CInProcessApp::WndProc(WM_SELECT_EASING_UPDATE, 0x%08X, 0x%08X)\n"), wParam, lParam);
-
-			update(wParam);
-
-			break;
-		}
-	case WM_WINDOWPOSCHANGING:
-		{
-			MY_TRACE(_T("CInProcessApp::WndProc(WM_WINDOWPOSCHANGING, 0x%08X, 0x%08X)\n"), wParam, lParam);
-
-			::PostThreadMessage(m_pi.dwThreadId, WM_SELECT_EASING_NOTIFY, 0, 0);
-
-			break;
-		}
+		auto edit = m_host->create_edit_handle();
+		if (edit && edit->get_host_app_window)
+			m_hwnd = edit->get_host_app_window();
 	}
 
-	return FALSE;
+	// AviUtl2 \u306e\u30e1\u30a4\u30f3\u30a6\u30a3\u30f3\u30c9\u30a6\u3092\u30af\u30e9\u30b9\u540d\u3067\u63a2\u3059 (\u30d5\u30a9\u30fc\u30eb\u30d0\u30c3\u30af)
+	if (!m_hwnd || !::IsWindow(m_hwnd))
+	{
+		m_hwnd = ::FindWindow(_T("aviutl2Manager"), NULL);
+		MY_TRACE(_T("Fallback: FindWindow(aviutl2Manager) = 0x%08X\n"), m_hwnd);
+	}
+
+	createSubProcess();
+	return true;
+}
+
+void CInProcessApp::uninitializePlugin()
+{
+	MY_TRACE(_T("CInProcessApp::uninitializePlugin()\n"));
+	if (m_pi.hProcess)
+	{
+		::CloseHandle(m_pi.hThread);
+		::CloseHandle(m_pi.hProcess);
+		::ZeroMemory(&m_pi, sizeof(m_pi));
+	}
+	trace_term();
 }
 
 BOOL CInProcessApp::createSubProcess()
 {
 	MY_TRACE(_T("CInProcessApp::createSubProcess()\n"));
-
-	TCHAR fileSpec[MAX_PATH] = {};
-	::GetModuleFileName(m_instance, fileSpec, MAX_PATH);
-	::PathStripPath(fileSpec);
-	MY_TRACE_TSTR(fileSpec);
-
 	TCHAR path[MAX_PATH] = {};
 	::GetModuleFileName(m_instance, path, MAX_PATH);
-	::PathRemoveExtension(path);
-	::PathAppend(path, fileSpec);
-	::PathRenameExtension(path, _T(".exe"));
-	MY_TRACE_STR(path);
+	::PathRemoveFileSpec(path);
+	::PathAppend(path, _T("SelectEasing"));
+	::PathAppend(path, _T("SelectEasing.exe"));
 
 	TCHAR args[MAX_PATH] = {};
-	::StringCbPrintf(args, sizeof(args), _T("0x%08p"), m_hwnd);
-	MY_TRACE_STR(args);
+	// HWND \u306f NULL \u306e\u5834\u5408\u308d\u304c\u308b\u3068\u3044\u3051\u306a\u3044\u306e\u3067\u30010 \u3068\u3057\u3066\u6e21\u3059
+	::StringCbPrintf(args, sizeof(args), _T("\"%s\" 0x%016p %u"), path, m_hwnd, ::GetCurrentProcessId());
+	MY_TRACE_TSTR(args);
 
 	STARTUPINFO si = { sizeof(si) };
-	if (!::CreateProcess(
-		path,           // No module name (use command line)
-		args,           // Command line
-		NULL,           // Process handle not inheritable
-		NULL,           // Thread handle not inheritable
-		FALSE,          // Set handle inheritance to FALSE
-		0,              // No creation flags
-		NULL,           // Use parent's environment block
-		NULL,           // Use parent's starting directory 
-		&si,            // Pointer to STARTUPINFO structure
-		&m_pi))         // Pointer to PROCESS_INFORMATION structur
+	if (!::CreateProcess(path, args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &m_pi))
 	{
-		MY_TRACE(_T("::CreateProcess() が失敗しました\n"));
-
+		TCHAR error[MAX_PATH];
+		::StringCbPrintf(error, sizeof(error), _T("SelectEasing.exe の起動に失敗しました。(Error: %u)"), ::GetLastError());
+		::MessageBox(m_hwnd, error, _T("SelectEasing エラー"), MB_ICONERROR);
 		return FALSE;
 	}
 
 	return TRUE;
 }
 
-//--------------------------------------------------------------------
-
-// フックをセットする。
-void CInProcessApp::initHook()
-{
-	MY_TRACE(_T("CInProcessApp::initHook()\n"));
-
-	DWORD exedit = theApp.m_auin.GetExEdit();
-	m_trackTable = (int*)(exedit + 0x14E900);
-	true_GetParamSmallExternal = hookCall(exedit + 0x2DBB1, hook_GetParamSmallExternal);
-}
-
-// フックを解除する。
-void CInProcessApp::termHook()
-{
-	MY_TRACE(_T("CInProcessApp::termHook()\n"));
-}
+void CInProcessApp::initHook() {}
+void CInProcessApp::termHook() {}
 
 //--------------------------------------------------------------------
+// \u30a8\u30af\u30b9\u30dd\u30fc\u30c8\u95a2\u6570\u306e\u5b9f\u88c5\uff08SDK \u306e\u5b9a\u7fa9\u306b\u53b3\u5bc6\u306b\u5408\u308f\u305b\u3001\u540d\u524d\u4fee\u98fe\u3068\u547c\u3073\u51fa\u3057\u898f\u7d04\u306e\u4e0d\u4e00\u81f4\u3092\u89e3\u6d88\uff09
+//--------------------------------------------------------------------
 
-void CInProcessApp::update(int value)
-{
-	MY_TRACE(_T("update(%d)\n"), value);
+extern "C" {
 
-	if (!m_trackOffsets)
-		return;
-
-	m_trackTable[m_trackIndex] = value;
-
+	__declspec(dllexport) void RegisterPlugin(struct HOST_APP_TABLE* host)
 	{
-		int offset = m_trackOffsets[0];
-		if (offset) m_trackTable[m_trackIndex + offset] = value;
+		theApp.registerPlugin(host);
 	}
 
+	__declspec(dllexport) bool InitializePlugin(DWORD version)
 	{
-		int offset = m_trackOffsets[1];
-		if (offset) m_trackTable[m_trackIndex + offset] = value;
+		return theApp.initializePlugin(version);
 	}
 
-	::SendMessage(m_auin.GetExEditWindow(), 0x111, 0x3EB, m_trackIndex | 0x00080000);
-}
+	__declspec(dllexport) void UninitializePlugin()
+	{
+		theApp.uninitializePlugin();
+	}
 
-//--------------------------------------------------------------------
+	__declspec(dllexport) struct COMMON_PLUGIN_TABLE* GetCommonPluginTable()
+	{
+		static struct COMMON_PLUGIN_TABLE common = {};
+		common.name = L"\u30a4\u30fc\u30b8\u30f3\u30b0\u7c21\u53d8\u9078\u629e";
+		common.information = L"\u30a4\u30fc\u30b8\u30f3\u30b0\u7c21\u53d8\u9078\u629e 4.5.0 by \u86c7\u8272 (AviUtl2\u5bfe\u5fdc)";
+
+		return &common;
+	}
+
+} // extern "C"
+
+BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
+{
+	return theApp.dllMain(instance, reason, reserved);
+}

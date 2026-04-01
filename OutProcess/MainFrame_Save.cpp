@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "OutProcess.h"
 #include "MainFrame.h"
 
@@ -10,23 +10,23 @@ HRESULT CMainFrame::saveSettings()
 {
 	MY_TRACE(_T("CMainFrame::saveSettings()\n"));
 
-	// 設定ファイルを読み込めていない場合は、保存処理をするとファイルの中の設定値がすべて初期値に戻ってしまう。
-	// よって、フラグを確認して設定ファイルを読み込めていない場合は保存処理をしないようにする。
+	// \u8a2d\u5b9a\u30d5\u30a1\u30a4\u30eb\u3092\u8aad\u307f\u8fbc\u3081\u3066\u3044\u306a\u3044\u5834\u5408\u306f\u3001\u4fdd\u5b58\u51e6\u7406\u3092\u3059\u308b\u3068\u30d5\u30a1\u30a4\u30eb\u306e\u4e2d\u306e\u8a2d\u5b9a\u5024\u304c\u3059\u3079\u3066\u521d\u671f\u5024\u306b\u6238\u3063\u3066\u3057\u307e\u3046\u3002
+	// \u3088\u3063\u3066\u3001\u30d5\u30e9\u30b0\u3092\u78ba\u8a8d\u3057\u3066\u8a2d\u5b9a\u30d5\u30a1\u30a4\u30eb\u3092\u8aad\u307f\u8fbc\u3081\u3066\u3044\u306a\u3044\u5834\u5408\u306f\u4fdd\u5b58\u51e6\u7406\u3092\u3057\u306a\u3044\u3088\u3046\u306b\u3059\u308b\u3002
 	if (!m_isSettingsFileLoaded)
 		return S_FALSE;
 
 	try
 	{
-		// ドキュメントを作成する。
+		// \u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\u3092\u4f5c\u6210\u3059\u308b\u3002
 		MSXML2::IXMLDOMDocumentPtr document(__uuidof(MSXML2::DOMDocument));
 
-		// ドキュメントエレメントを作成する。
+		// \u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\u30a8\u30ec\u30e1\u30f3\u30c8\u3092\u4f5c\u6210\u3059\u308b\u3002
 		MSXML2::IXMLDOMElementPtr element = appendElement(document, document, L"settings");
 
-		// <easing> を作成する。
+		// <easing> \u3092\u4f5c\u6210\u3059\u308b\u3002
 		saveEasing(element);
 
-		// <ease> を作成する。
+		// <ease> \u3092\u4f5c\u6210\u3059\u308b\u3002
 		m_easeWindow.saveEase(element);
 
 		return saveXMLDocument(document, m_fileUpdateChecker.getFilePath(), L"UTF-16");
@@ -38,15 +38,15 @@ HRESULT CMainFrame::saveSettings()
 	}
 }
 
-// <easing> を作成する。
+// <easing> \u3092\u4f5c\u6210\u3059\u308b\u3002
 HRESULT CMainFrame::saveEasing(const MSXML2::IXMLDOMElementPtr& element)
 {
 	MY_TRACE(_T("CMainFrame::saveEasing()\n"));
 
-	// <easing> を作成する。
+	// <easing> \u3092\u4f5c\u6210\u3059\u308b\u3002
 	MSXML2::IXMLDOMElementPtr easingElement = appendElement(element, L"easing");
 
-	// <easing> のアトリビュートを作成する。
+	// <easing> \u306e\u30a2\u30c8\u30ea\u30d3\u30e5\u30fc\u30c8\u3092\u4f5c\u6210\u3059\u308b\u3002
 	setPrivateProfileInt(easingElement, L"imageVersion", m_imageVersion);
 	setPrivateProfileBool(easingElement, L"clamp", m_clamp);
 	setPrivateProfileString(easingElement, L"horz", m_horz);
