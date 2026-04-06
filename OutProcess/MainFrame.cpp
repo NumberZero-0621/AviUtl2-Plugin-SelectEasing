@@ -247,11 +247,10 @@ HWND CMainFrame::getTarget()
 		if (::lstrcmpi(className, _T("#32770")) != 0)
 			return false;
 
-		// AviUtl2 \u3067\u306f\u82f1\u5b57\u306e "easing" \u3084 "@" \u304c\u542b\u307e\u308c\u308b\u3053\u3068\u304c\u591a\u3044
+		// AviUtl2 では英字の "easing" や "イージング" が含まれることが多い
 		if (::lstrcmp(text, _T("\u79fb\u52d5\u30d5\u30ec\u30fc\u30e0\u9593\u9694")) == 0 || 
 			::StrStrI(text, _T("\u30a4\u30fc\u30b8\u30f3\u30b0")) != NULL ||
-			::StrStrI(text, _T("easing")) != NULL ||
-			::StrStrI(text, _T("@")) != NULL)
+			::StrStrI(text, _T("easing")) != NULL)
 		{
 			// Edit \u30af\u30e9\u30b9\u306e\u5b50\u30a6\u30a3\u30f3\u30c9\u30a6\u3092\u6301\u3064\u304b\u3082\u30c1\u30a7\u30c3\u30af
 			if (::FindWindowEx(h, NULL, _T("Edit"), NULL) != NULL)
